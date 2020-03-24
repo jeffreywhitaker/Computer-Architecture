@@ -2,12 +2,20 @@
 
 import sys
 
+# set OP codes
+LDI = 0b10000010
+PRN = 0b01000111
+HLT = 0b00000001
+
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        # initialize the 8 registers, and PC
+        self.register = [0] * 8
+        self.ram = [0] * 256
+        self.pc = 0
 
     def load(self):
         """Load a program into memory."""
@@ -37,8 +45,16 @@ class CPU:
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
         #elif op == "SUB": etc
+        if op == "LDI":
+            ram_write(register[0], 8)
         else:
             raise Exception("Unsupported ALU operation")
+    
+    def ram_read(self, address_to_read):
+        return self.ram[address_to_read]
+
+    def ram_write(self, address_to_write, value):
+        self.ram[address_to_write] = value
 
     def trace(self):
         """
@@ -62,4 +78,32 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        while True:
+            # read memory address stored in pc, set that to ir, read command
+            ir = self.pc
+            op = self.ram_read(ir)
+
+            # get operand_a and _b in case we need them
+            operand_a = self.ram_read(ir + 1)
+            operand_b = self.ram_read(ir + 2)
+
+            # make the if else loop
+            if op == HLT:
+                break
+            elif op == LDI:
+                self.ram_write(int(operand_a), operand_b)
+                self.pc += 3
+            elif op == PRN:
+                code_to_print = self.ram_read(operand_a)
+                print(int(code_to_print))
+                self.pc += 2
+            else:
+                print(f"Unknown instruction: {op}")
+                sys.exit(1)
+
+cpu = CPU()
+cpu.load()
+cpu.run()
+
+
+
