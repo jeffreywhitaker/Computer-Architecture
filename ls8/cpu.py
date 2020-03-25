@@ -6,6 +6,8 @@ import sys
 LDI = 0b10000010
 PRN = 0b01000111
 HLT = 0b00000001
+MUL = 0b10100010
+ADD = 0b10100000
 
 class CPU:
     """Main CPU class."""
@@ -17,36 +19,48 @@ class CPU:
         self.ram = [0] * 256
         self.pc = 0
 
-    def load(self):
+    def load(self, filename):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
+        try:
+            with open(filename) as f:
+                for line in f:
+                    # ignore ## comments
+                    comments_removed = line.split("#")
+                    # remove whitespace
+                    num = comments_removed[0].strip()
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+                    # ignore blank lines
+                    if num == '':
+                        continue
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                    # convert to integer
+                    value = int(num, 2)
 
+                    # write and increment
+                    self.ram_write(address, value)
+                    address += 1
+
+        except FileNotFoundError:
+            print(f" {sys.argv[0]}: {filename} not found")
+            sys.exit(2)
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
+        reg_a = int(reg_a)
+        reg_b = int(reg_b)
 
-        if op == "ADD":
-            self.reg[reg_a] += self.reg[reg_b]
+        if op == ADD:
+            self.register[reg_a] += self.register[reg_b]
+            self.pc += 3
         #elif op == "SUB": etc
-        if op == "LDI":
-            ram_write(register[0], 8)
+        elif op == MUL:
+            self.register[reg_a] *= self.register[reg_b]
+            self.pc += 3
+        # if op == "LDI":
+        #     ram_write(register[0], 8)
         else:
             raise Exception("Unsupported ALU operation")
     
@@ -72,7 +86,7 @@ class CPU:
         ), end='')
 
         for i in range(8):
-            print(" %02X" % self.reg[i], end='')
+            print(" %02X" % self.register[i], end='')
 
         print()
 
@@ -91,19 +105,18 @@ class CPU:
             if op == HLT:
                 break
             elif op == LDI:
-                self.ram_write(int(operand_a), operand_b)
+                # self.ram_write(int(operand_a), operand_b)
+                self.register[operand_a] = operand_b
                 self.pc += 3
             elif op == PRN:
-                code_to_print = self.ram_read(operand_a)
-                print(int(code_to_print))
+                print(self.register[operand_a])
+                # code_to_print = self.ram_read(operand_a)
+                # print(int(code_to_print))
                 self.pc += 2
+            # if marked as such, run the ALU
+            elif op == MUL:
+                self.alu(op, operand_a, operand_b)
             else:
                 print(f"Unknown instruction: {op}")
                 sys.exit(1)
-
-cpu = CPU()
-cpu.load()
-cpu.run()
-
-
 
