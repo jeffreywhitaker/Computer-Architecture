@@ -10,6 +10,10 @@ MUL = 0b10100010
 ADD = 0b10100000
 PUSH = 0b01000101
 POP = 0b1000110
+JMP = 0b01010100
+JNE = 0b01010110
+JEQ = 0b01010101
+CMP = 0b10100111
 
 class CPU:
     """Main CPU class."""
@@ -20,6 +24,7 @@ class CPU:
         self.register = [0] * 8
         self.ram = [0] * 256
         self.pc = 0
+        self.flag = 0
 
         # implement branchtable
         self.branchtable = {
@@ -29,7 +34,11 @@ class CPU:
             PUSH: self.PUSH,
             POP: self.POP,
             LDI: self.LDI,
-            PRN: self.PRN
+            PRN: self.PRN,
+            JMP: self.JMP,
+            JNE: self.JNE,
+            JEQ: self.JEQ,
+            CMP: self.alu
         }
 
     def load(self, filename):
@@ -68,12 +77,26 @@ class CPU:
         if op == ADD:
             self.register[reg_a] += self.register[reg_b]
             self.pc += 3
-        #elif op == "SUB": etc
         elif op == MUL:
             self.register[reg_a] *= self.register[reg_b]
             self.pc += 3
-        # if op == "LDI":
-        #     ram_write(register[0], 8)
+        elif op == CMP:
+            '''
+            * If they are equal, set the Equal `E` flag to 1, otherwise set it to 0.
+
+            * If registerA is less than registerB, set the Less-than `L` flag to 1,
+            otherwise set it to 0.
+
+            * If registerA is greater than registerB, set the Greater-than `G` flag
+            to 1, otherwise set it to 0.
+            '''
+            if self.register[reg_a] == self.register[reg_b]:
+                self.flag = 0b00000001
+            if self.register[reg_a] < self.register[reg_b]:
+                self.flag = 0b00000010
+            if self.register[reg_a] > self.register[reg_b]:
+                self.flag = 0b00000100
+            self.pc += 3
         else:
             raise Exception("Unsupported ALU operation")
     
@@ -115,7 +138,7 @@ class CPU:
             operand_b = self.ram_read(ir + 2)
 
             if op in self.branchtable:
-                if op in [ADD, MUL]:
+                if op in [ADD, MUL, CMP]:
                     self.branchtable[op](op, operand_a, operand_b)
                 elif op >> 6 == 0:
                     self.branchtable[op]()
@@ -126,25 +149,6 @@ class CPU:
             else:
                 print(f"Unknown instruction: {op}")
                 sys.exit(1)
-
-            # # make the if else loop
-            # if op == HLT:
-            #     break
-            # elif op == LDI:
-            #     # self.ram_write(int(operand_a), operand_b)
-            #     self.register[operand_a] = operand_b
-            #     self.pc += 3
-            # elif op == PRN:
-            #     print(self.register[operand_a])
-            #     # code_to_print = self.ram_read(operand_a)
-            #     # print(int(code_to_print))
-            #     self.pc += 2
-            # # if marked as such, run the ALU
-            # elif op == MUL:
-            #     self.alu(op, operand_a, operand_b)
-            # else:
-            #     print(f"Unknown instruction: {op}")
-            #     sys.exit(1)
 
     # set register at op_a to value of op_b
     def LDI(self, operand_a, operand_b):
@@ -171,5 +175,24 @@ class CPU:
     # stop with okay exit code
     def HLT(self):
         sys.exit(0)
+
+    # Set the `PC` to the address stored in the given register
+    def JMP(self, register_a):
+        self.pc = self.register[register_a]
+
+    # If `equal` flag is set (true), jump to the address stored in the given register.
+    def JEQ(self, register_a):
+        # less, greater, equal
+        if self.flag == 0b00000001:
+            self.JMP(register_a)
+        else:
+            self.pc += 2
+
+    # If `E` flag is clear (false, 0), jump to the address stored in the given register.
+    def JNE(self, register_a):
+        if self.flag == 0b00000010 or self.flag == 0b00000100:
+            self.JMP(register_a)
+        else:
+            self.pc += 2
 
     
